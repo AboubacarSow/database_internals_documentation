@@ -34,18 +34,18 @@ Database System
     └── Consensus Algorithms
 ```
 
-``` mermaid
+```mermaid
 graph TD
     A[Database System]
 
-    A --> B[Part I: Storage (Single Node)]
+    A --> B[Part I: Storage - Single Node]
     B --> B1[DBMS Architecture]
     B --> B2[Storage Media & Layouts]
     B --> B3[Disk-Oriented Data Structures]
     B3 --> B31[B-Trees & Variants]
     B --> B4[Log-Structured Storage]
 
-    A --> C[Part II: Distribution (Multiple Nodes)]
+    A --> C[Part II: Distribution - Multiple Nodes]
     C --> C1[Distributed Systems Fundamentals]
     C --> C2[Failure Detection]
     C --> C3[Leader Election]
