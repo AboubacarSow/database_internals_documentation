@@ -72,6 +72,9 @@ These notes are specifically designed to be referenced during:
 3. **Architectural Decisions:** Deciding between consistency models in distributed environments.
 
 ---
+## 🚧 Work in Progress
+
+This repository evolves as I read, test, and reflect. Notes may be rewritten multiple times as understanding improves — this is intentional.
 
 ## 📌 References & Disclaimer
 
