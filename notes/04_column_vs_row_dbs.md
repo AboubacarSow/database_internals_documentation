@@ -258,6 +258,16 @@ This design:
 | CPU vectorization | Limited      | Strong          |
 | Example systems   | PostgreSQL   | ClickHouse      |
 
+### Disk I/O intuition
+```
+Disk reads blocks, not values.
+
+Row Store:
+[ID | Name | DOB | Phone]  <-- block
+
+Column Store:
+[Phone | Phone | Phone]    <-- block
+```
 ---
 
 ### One-Sentence Intuition
