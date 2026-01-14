@@ -100,7 +100,7 @@ It acts as **the brain of DBMS**.
 * Collects and returns final results
 * It's the **Orchestrator**
 
-The ****Execution** engine does not optimize queries; it follows the plan selected by the optimizer. So it trusts the **Query optimizer**
+The **Execution** engine does not optimize queries; it follows the plan selected by the optimizer. So it trusts the **Query optimizer**
 
 ---
 
