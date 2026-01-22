@@ -377,3 +377,278 @@ This chapter introduced:
 
 ---
 
+Great question — this is a **core idea in database storage**, and it’s normal that it feels abstract at first. Let’s make it concrete with a **step-by-step example**, and tie every step back to the problems described in the text.
+
+---
+
+## 1️⃣ The core problem (without slotted pages)
+
+Assume:
+
+* Page size = **256 bytes**
+* Records are **variable-size** (strings, blobs, etc.)
+
+### Insert some records
+
+| Record | Size     |
+| ------ | -------- |
+| R1     | 40 bytes |
+| R2     | 70 bytes |
+| R3     | 30 bytes |
+
+They are stored sequentially in the page:
+
+```
+| R1 (40) | R2 (70) | R3 (30) | free space |
+```
+
+Used space = 140 bytes
+Free space = 116 bytes
+
+---
+
+### Delete R2 (70 bytes)
+
+Now the page looks like this:
+
+```
+| R1 (40) | [FREE 70] | R3 (30) | free space |
+```
+
+### Try to insert R4 (50 bytes)
+
+* The free hole is **70 bytes**
+* R4 needs **50 bytes**
+
+**Problem**:
+
+* You *could* put R4 in that space
+* But then you’d have **20 bytes of unused space**
+* After many inserts/deletes, the page becomes **fragmented**
+
+This is **external fragmentation**.
+
+---
+
+## 2️⃣ Why fixed-size segments don’t fully solve it
+
+Suppose instead:
+
+* You split the page into **64-byte segments**
+
+### Insert R1 (40 bytes)
+
+* Uses 1 segment
+* Wasted space = 24 bytes
+
+### Insert R2 (70 bytes)
+
+* Needs 2 segments = 128 bytes
+* Wasted space = 58 bytes
+
+➡️ You avoid fragmentation, but now you have **internal fragmentation** (wasted space inside blocks).
+
+So we want:
+
+* Variable-size records
+* Minimal waste
+* Easy deletion
+* Stable references to records
+
+This is where **slotted pages** come in.
+
+---
+
+## 3️⃣ Slotted page idea (big picture)
+
+A **slotted page splits the page into two logical regions**:
+
+```
+| Page Header | Slot Directory → ← Free Space → ← Records |
+```
+
+* **Slot directory** grows from the **front**
+* **Records (cells)** grow from the **back**
+* Free space stays in the middle
+
+Crucially:
+
+* Slots contain **pointers (offsets)** to records
+* External code refers to records by **slot ID**, not physical offset
+
+---
+
+## 4️⃣ Concrete slotted page example
+
+### Page size = 256 bytes
+
+### Step 1: Insert R1 (40 bytes)
+
+* Allocate a **slot entry**:
+
+  ```
+  Slot 0 → offset 216, length 40
+  ```
+* Write R1 at the end of the page
+
+```
+| Header | Slot[0] | free space | R1 |
+```
+
+---
+
+### Step 2: Insert R2 (70 bytes)
+
+```
+Slot 1 → offset 146, length 70
+```
+
+```
+| Header | Slot[0] | Slot[1] | free | R2 | R1 |
+```
+
+---
+
+### Step 3: Insert R3 (30 bytes)
+
+```
+Slot 2 → offset 116, length 30
+```
+
+```
+| Header | Slot[0] | Slot[1] | Slot[2] | free | R3 | R2 | R1 |
+```
+
+Notice:
+
+* Records are packed from the **end**
+* Slots grow from the **beginning**
+
+---
+
+## 5️⃣ Deleting a record (this is the key part)
+
+### Delete R2
+
+We do **NOT** immediately move bytes.
+
+Instead:
+
+* Either:
+
+  * Mark `Slot 1` as **invalid**, or
+  * Remove it and compact the slot directory
+
+```
+Slot 1 → null
+```
+
+Page now looks like:
+
+```
+| Header | Slot[0] | Slot[1=null] | Slot[2] | free | R3 | [R2 garbage] | R1 |
+```
+
+R2’s bytes are now **garbage**, but:
+
+* No one references them anymore
+* No external pointer breaks
+
+---
+
+## 6️⃣ Space reclamation (defragmentation)
+
+When the page needs space:
+
+* The database **rewrites the page**
+* Live records are packed tightly again
+* Slot offsets are updated
+
+After compaction:
+
+```
+| Header | Slot[0] | Slot[2] | free | R3 | R1 |
+```
+
+Slot directory updated:
+
+```
+Slot 0 → new offset of R1
+Slot 2 → new offset of R3
+```
+
+🚨 External references remain valid because they use **slot IDs**, not offsets.
+
+---
+
+## 7️⃣ Why this solves the original problems
+
+Let’s map directly to the text.
+
+---
+
+### ✅ Minimal overhead
+
+Only extra cost:
+
+* One slot entry per record (offset + length)
+
+No padding, no fixed blocks.
+
+---
+
+### ✅ Space reclamation
+
+* Deleted records leave garbage
+* Garbage is removed during page rewrite
+* No fragmentation leaks outside the page
+
+---
+
+### ✅ Reference records without knowing location
+
+External references look like:
+
+```
+(page_id, slot_id)
+```
+
+Not:
+
+```
+(page_id, byte_offset)
+```
+
+So records can move freely **inside the page**.
+
+---
+
+## 8️⃣ Mental model to remember
+
+Think of a slotted page like:
+
+* **Array of pointers** (slot directory)
+* **Heap of variable-sized objects** (records)
+* Garbage collection happens **per page**
+
+Very similar to:
+
+* Heap + object references in a VM
+* Indirection to enable movement
+
+---
+
+## 9️⃣ Why this matters for you (database internals perspective)
+
+This design:
+
+* Enables efficient B-Trees with variable-size keys
+* Makes DELETE cheap
+* Enables UPDATE that changes record size
+* Is foundational to PostgreSQL, SQLite, many others
+
+You’re now at the point where:
+
+> *Pages are no longer just byte arrays — they’re miniature memory managers.*
+
+
